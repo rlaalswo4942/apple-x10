@@ -42,7 +42,7 @@ npm run online         # 랭킹 모드 통합 테스트 (브라우저 → 가짜
 - **시간**: 연습은 `performance.now()` 기준 경과 시간(숨긴 탭에서도 흐름), 랭킹은 서버 `now()`(요청 수락 시각)가 기준.
 - **랭킹 이동은 한 번에 하나**: 서버 응답을 기다리는 동안 다음 드래그를 막아 순서 역전·중복을 없앴다.
 
-## 온라인 랭킹 연결 (현재 미연결)
+## 온라인 랭킹 연결
 
 1. Supabase 프로젝트 → **Authentication → Sign In / Providers → Allow anonymous sign-ins** 켜기
 2. **SQL Editor**에 `supabase/apple.sql` 전체 붙여 넣고 Run
