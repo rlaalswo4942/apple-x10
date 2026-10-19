@@ -48,7 +48,7 @@ const allowNewRun = (uid) => admin(`update apple_private.runs set started_at = s
   expires_at = expires_at - interval '10 seconds' where user_id = $1`, [uid]);
 
 test("공유 테스트 벡터: 점수 공식이 rules.js와 같다", async () => {
-  const vecs = [[2, 10, 0, 2], [4, 10, 0, 6], [4, 20, 0, 8], [6, 30, 1, 24], [20, 100, 0, 40], [0, 0, 0, 0], [2, 11, 0, 0], [1, 10, 0, 0]];
+  const vecs = [[2, 10, 0, 2], [4, 10, 0, 6], [4, 20, 0, 8], [6, 30, 1, 24], [20, 100, 0, 0], [5, 40, 0, 0], [0, 0, 0, 0], [2, 11, 0, 0], [1, 10, 0, 0]];
   for (const [n, s, b, want] of vecs) {
     const got = (await admin("select apple_private.score($1, $2, $3) as v", [n, s, b])).rows[0].v;
     assert.equal(got, want, `(${n},${s},${b})`);
@@ -184,7 +184,7 @@ test("서버 자동 복구: 판이 비거나 해가 없으면 판 전체 재생�
 
 test("랭킹 (20): 한국 날짜 일간, 이용자별 최고 1개, 동점은 먼저 확정, 규칙 버전 분리, 닉네임 검증", async () => {
   await admin("delete from apple_private.runs");
-  const mk = async (uid, nick, score, at, version = 2) => {
+  const mk = async (uid, nick, score, at, version = 3) => {
     const st = await rpc(uid, "apple_start_run", [nick]);
     await admin(`update apple_private.runs set status = 'finished', score = $2, finished_at = ${at},
       started_at = started_at - interval '1 day', expires_at = expires_at - interval '1 day', rules_version = $3 where id = $1`,
@@ -194,7 +194,7 @@ test("랭킹 (20): 한국 날짜 일간, 이용자별 최고 1개, 동점은 먼
   await mk(U1, "가나다", 80, `${today} + interval '1 minute'`);
   await mk(U1, "가나다", 120, `${today} - interval '1 minute'`);         // 어제 23:59 (한국 시간)
   await mk(U2, "Bob_2", 80, `${today} + interval '30 seconds'`);         // U1과 동점이지만 먼저 확정
-  await mk(U3, "v1player", 999, `${today} + interval '2 minutes'`, 1);   // 다른 규칙 버전
+  await mk(U3, "v2player", 999, `${today} + interval '2 minutes'`, 2);   // 다른 규칙 버전
 
   const daily = await call(U1, "select * from public.apple_leaderboard('daily')");
   assert.deepEqual(daily.map((r) => [r.nickname, r.score]), [["Bob_2", 80], ["가나다", 80]]);

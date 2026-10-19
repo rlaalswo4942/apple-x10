@@ -112,12 +112,7 @@ function updatePreview() {
   selBox.classList.toggle("valid", ev.valid);
   // 미리보기는 점수를 확정하지 않는다
   p.innerHTML = "";
-  p.append(`합계 ${ev.S} · 사과 ${ev.N}개${ev.B ? ` (★${ev.B})` : ""} · `);
-  const tag = document.createElement("span");
-  tag.className = ev.valid ? "valid" : "invalid";
-  tag.textContent = ev.valid ? `제거 가능 · 예상 +${ev.earned}점`
-    : ev.N >= 2 ? `10의 배수가 아님 · 놓으면 -${RULES.missPenalty}점` : "사과가 2개 미만";
-  p.append(tag);
+  p.append(`합계 ${ev.S} · 사과 ${ev.N}개${ev.B ? ` (★${ev.B})` : ""}`);
 }
 
 function endDrag() {
@@ -176,7 +171,7 @@ async function commit(sel) {
       boardEl.classList.remove("flash"); void boardEl.offsetWidth; boardEl.classList.add("flash");
     }
   } else if (res.reason === "invalid") {
-    setStatus(`합계 ${res.eval.S} — 10의 배수이고 사과가 2개 이상이어야 해요${res.penalty ? ` (-${res.penalty}점)` : ""}`);
+    setStatus(`합계 ${res.eval.S} — 10·20·30이고 사과가 2개 이상이어야 해요${res.penalty ? ` (-${res.penalty}점)` : ""}`);
   } else if (res.reason === "time-up") {
     setStatus("시간이 끝나서 점수에 반영되지 않았어요");
   } else if (res.reason === "network") {

@@ -2,7 +2,7 @@
 // 보드: board[row][col] = null | { id, value, isBonus }
 
 export const RULES = {
-  version: 2,
+  version: 3,
   rows: 10,
   cols: 17,
   durationMs: 120_000,
@@ -13,6 +13,7 @@ export const RULES = {
   countBonusCap: 8,
   sumBonusPerTen: 2,
   sumBonusCap: 6,
+  maxSum: 30,                       // 묶음 합계 상한: 10·20·30만 인정
   missPenalty: 3,                   // 사과 2개 이상 묶었는데 무효면 감점 (0점 아래로는 안 내려감)
   maxRegenerations: 20,             // 새 판 생성 재시도 (사실상 1회면 성공)
 };
@@ -50,13 +51,13 @@ const isValidApple = (cell) =>
   cell !== null && typeof cell === "object" &&
   Number.isInteger(cell.value) && cell.value >= 1 && cell.value <= 9;
 
-export function isValidTotal(N, S) {
-  return N >= 2 && S >= 10 && S % 10 === 0;
+export function isValidTotal(N, S, rules = RULES) {
+  return N >= 2 && S >= 10 && S <= rules.maxSum && S % 10 === 0;
 }
 
 export function calculateScore({ N, S, B }, rules = RULES) {
   if (!Number.isInteger(N) || !Number.isInteger(S) || !Number.isInteger(B)) return 0;
-  if (!isValidTotal(N, S) || B < 0 || B > N) return 0;
+  if (!isValidTotal(N, S, rules) || B < 0 || B > N) return 0;
   const countBonus = Math.min(Math.max(N - 2, 0), rules.countBonusCap);
   const sumBonus = rules.sumBonusPerTen * Math.min(S / 10 - 1, rules.sumBonusCap);
   return N + countBonus + sumBonus + rules.bonusPoints * B;
@@ -72,7 +73,7 @@ export function evaluateSelection(board, sel, rules = RULES) {
       N++; S += cell.value; if (cell.isBonus) B++;
     }
   }
-  const valid = !corrupt && isValidTotal(N, S);
+  const valid = !corrupt && isValidTotal(N, S, rules);
   return { N, S, B, valid, earned: valid ? calculateScore({ N, S, B }, rules) : 0 };
 }
 

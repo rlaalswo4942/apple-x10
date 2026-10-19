@@ -44,7 +44,8 @@ test("3. 합계 10/20/30/100 유효, 0/9/11/25·N<2 무효", () => {
   assert.ok(ev([4, 6]).valid);
   assert.ok(ev([9, 9, 2]).valid);
   assert.ok(ev([9, 9, 9, 3]).valid);
-  assert.ok(ev(new Array(12).fill(8).concat([4])).valid, "100");
+  assert.equal(ev(new Array(12).fill(8).concat([4])).valid, false, "100은 30 초과라 무효");
+  assert.equal(ev([9, 9, 9, 9, 4]).valid, false, "40은 30 초과라 무효");
   assert.equal(ev([]).valid, false, "0");
   assert.equal(ev([9]).valid, false, "9, N=1");
   assert.equal(ev([5, 6]).valid, false, "11");
@@ -60,7 +61,8 @@ test("4. 점수 벡터", () => {
   assert.equal(calculateScore({ N: 4, S: 10, B: 0 }), 6);
   assert.equal(calculateScore({ N: 4, S: 20, B: 0 }), 8);
   assert.equal(calculateScore({ N: 6, S: 30, B: 1 }), 24);
-  assert.equal(calculateScore({ N: 20, S: 100, B: 0 }), 40);
+  assert.equal(calculateScore({ N: 20, S: 100, B: 0 }), 0, "합계 30 초과는 무효");
+  assert.equal(calculateScore({ N: 5, S: 40, B: 0 }), 0, "합계 40도 무효");
   assert.equal(calculateScore({ N: 0, S: 0, B: 0 }), 0);
   assert.equal(calculateScore({ N: 2, S: 11, B: 0 }), 0);
   assert.equal(calculateScore({ N: 2.5, S: 10, B: 0 }), 0);

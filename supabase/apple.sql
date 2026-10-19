@@ -6,7 +6,7 @@
 --   - 테이블과 규칙 함수는 apple_private 스키마 (API로 노출되지 않음, RLS 켜고 정책 없음 = 직접 접근 불가)
 --   - 브라우저가 부를 수 있는 것은 public.apple_* 함수 5개뿐 (authenticated 역할만 실행 가능)
 --   - 이동 처리는 runs 행을 FOR UPDATE로 잠그고 한 트랜잭션에서 판정·기록 → 같은 (run, seq) 동시 제출도 한 번만 반영
--- 규칙은 apple/rules.js와 같다 (17×10, 10의 배수, 점수 공식, 실패 감점 3, 보너스, 막히면 판 전체 재생성). rules_version = 2.
+-- 규칙은 apple/rules.js와 같다 (17×10, 합 10·20·30, 점수 공식, 실패 감점 3, 보너스, 막히면 판 전체 재생성). rules_version = 3.
 
 create schema if not exists apple_private;
 revoke all on schema apple_private from public;
@@ -60,7 +60,7 @@ revoke all on all tables in schema apple_private from public, anon, authenticate
 create or replace function apple_private.score(p_n int, p_s int, p_b int) returns int
 language sql immutable set search_path = '' as $$
   select case
-    when p_n >= 2 and p_s >= 10 and p_s % 10 = 0 and p_b between 0 and p_n
+    when p_n >= 2 and p_s >= 10 and p_s <= 30 and p_s % 10 = 0 and p_b between 0 and p_n
     then p_n + least(greatest(p_n - 2, 0), 8) + 2 * least(p_s / 10 - 1, 6) + 10 * p_b
     else 0 end
 $$;
@@ -107,7 +107,7 @@ begin
           n := pc[(r1 + 1) * 18 + c1 + 2] - pc[r0 * 18 + c1 + 2] - pc[(r1 + 1) * 18 + c0 + 1] + pc[r0 * 18 + c0 + 1];
           if n >= 2 then
             s := ps[(r1 + 1) * 18 + c1 + 2] - ps[r0 * 18 + c1 + 2] - ps[(r1 + 1) * 18 + c0 + 1] + ps[r0 * 18 + c0 + 1];
-            if s >= 10 and s % 10 = 0 then return true; end if;
+            if s >= 10 and s <= 30 and s % 10 = 0 then return true; end if;
           end if;
         end loop;
       end loop;
@@ -244,7 +244,7 @@ begin
     into brd from (select array_agg(g.ix order by random()) x from generate_series(0, 169) g(ix)) q;   -- 시작 보너스 2개
 
   insert into apple_private.runs (user_id, rules_version, started_at, expires_at, board, next_id)
-    values (uid, 2, now(), now() + interval '120 seconds', brd, nid)
+    values (uid, 3, now(), now() + interval '120 seconds', brd, nid)
     returning * into r;
   return apple_private.state(r);
 end $$;
@@ -344,7 +344,7 @@ begin
     return query
       with done as (
         select r.score, coalesce(r.finished_at, r.expires_at) as at from apple_private.runs r
-        where r.user_id = auth.uid() and r.rules_version = 2 and (r.status = 'finished' or r.expires_at <= now()))
+        where r.user_id = auth.uid() and r.rules_version = 3 and (r.status = 'finished' or r.expires_at <= now()))
       (select null::bigint, '최고 기록'::text, d.score, d.at from done d order by d.score desc, d.at limit 1)
       union all
       (select row_number() over (order by d.at desc), '최근'::text, d.score, d.at from done d order by d.at desc limit 10);
@@ -354,7 +354,7 @@ begin
   return query
     with done as (
       select r.user_id, r.score, coalesce(r.finished_at, r.expires_at) as at from apple_private.runs r
-      where r.rules_version = 2 and (r.status = 'finished' or r.expires_at <= now())),
+      where r.rules_version = 3 and (r.status = 'finished' or r.expires_at <= now())),
     scoped as (
       select * from done d
       where p_scope = 'all' or (d.at at time zone 'Asia/Seoul')::date = (now() at time zone 'Asia/Seoul')::date),

@@ -81,8 +81,6 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px s
   font-size: 0.95rem;
   font-variant-numeric: tabular-nums;
 }
-.preview .valid { color: var(--ok); font-weight: 700; }
-.preview .invalid { color: var(--bad); font-weight: 700; }
 
 /* ===== 게임판 ===== */
 .board-wrap { position: relative; width: calc(var(--cell) * 17); margin: 4px auto 0; }
