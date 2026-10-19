@@ -115,7 +115,8 @@ function updatePreview() {
   p.append(`합계 ${ev.S} · 사과 ${ev.N}개${ev.B ? ` (★${ev.B})` : ""} · `);
   const tag = document.createElement("span");
   tag.className = ev.valid ? "valid" : "invalid";
-  tag.textContent = ev.valid ? `제거 가능 · 예상 +${ev.earned}점` : "10의 배수가 아니거나 사과가 2개 미만";
+  tag.textContent = ev.valid ? `제거 가능 · 예상 +${ev.earned}점`
+    : ev.N >= 2 ? `10의 배수가 아님 · 놓으면 -${RULES.missPenalty}점` : "사과가 2개 미만";
   p.append(tag);
 }
 
@@ -158,8 +159,6 @@ for (const type of ["pointercancel", "lostpointercapture"]) {
 boardEl.addEventListener("contextmenu", (e) => e.preventDefault());
 
 const RECOVERY_MSG = {
-  "shuffled": "더 없앨 수 있는 묶음이 없어 남은 사과를 섞었어요",
-  "filled-4-6": "묶음이 없어 빈자리에 4와 6을 채웠어요",
   "regenerated": "묶음이 없어 새 판을 깔았어요 (★ 보너스는 그대로)",
   "regenerated-empty": "판을 다 비웠어요! 새 판을 깔았어요",
 };
@@ -177,7 +176,7 @@ async function commit(sel) {
       boardEl.classList.remove("flash"); void boardEl.offsetWidth; boardEl.classList.add("flash");
     }
   } else if (res.reason === "invalid") {
-    setStatus(`합계 ${res.eval.S} — 10의 배수이고 사과가 2개 이상이어야 해요`);
+    setStatus(`합계 ${res.eval.S} — 10의 배수이고 사과가 2개 이상이어야 해요${res.penalty ? ` (-${res.penalty}점)` : ""}`);
   } else if (res.reason === "time-up") {
     setStatus("시간이 끝나서 점수에 반영되지 않았어요");
   } else if (res.reason === "network") {

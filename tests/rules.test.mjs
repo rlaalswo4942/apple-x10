@@ -117,7 +117,7 @@ test("8. 8,415개 직사각형을 검사하고 실제 사과 수 조건도 본�
   assert.equal(findAnyValidRectangle(tenOnly), null, "합계 10이어도 사과 1개면 무효");
 });
 
-test("9. 해결 가능 보드는 복구 안 함, 불가능 보드는 제한 안에 해 1개 이상", () => {
+test("9. 해결 가능 보드는 복구 안 함, 불가능 보드는 판 전체 재생성", () => {
   const ok = fullBoard(5);
   const r1 = tryRecoverBoard(ok, createSeededRng(1), createIdGen());
   assert.equal(r1.action, "none");
@@ -125,14 +125,13 @@ test("9. 해결 가능 보드는 복구 안 함, 불가능 보드는 제한 안�
 
   const b = emptyBoard(); b[0][0] = a(9); b[9][16] = a(9);   // 9+9=18, 섞어도 불가, 인접 빈칸 있음
   const r2 = tryRecoverBoard(b, createSeededRng(2), createIdGen(5000));
-  assert.equal(r2.action, "filled-4-6");
-  assert.ok(r2.shuffles <= RULES.maxShuffles);
+  assert.equal(r2.action, "regenerated");
   assert.ok(findAnyValidRectangle(r2.board));
-  assert.equal(liveCells(r2.board).length, 4);
+  assert.equal(liveCells(r2.board).length, 170, "빈칸 보충이 아니라 판 전체");
+  assert.notEqual(r2.board[0][0], b[0][0], "기존 사과는 남지 않음");
 });
 
-test("10. 인접 빈칸이 없으면 4+6 보충 없이 전체 재생성", () => {
-  // 17×10에서 "빈칸 비인접 + 유효 조합 없음"은 만들기 어려워 2×3 소형 보드로 확인 (규칙 함수는 크기 무관)
+test("10. 소형 판에서도 막히면 전체 재생성 (규칙 함수는 크기 무관)", () => {
   const small = { ...RULES, rows: 2, cols: 3 };
   const tiny = [[a(9), null, a(9)], [null, a(9), null]];   // 빈칸 (0,1),(1,0),(1,2): 서로 인접 아님
   assert.equal(findAnyValidRectangle(tiny), null);          // 9+9=18, 9+9+9=27
@@ -162,8 +161,8 @@ test("11. 보드가 완전히 비면 재생성, 점수·남은 시간·보너스
   assert.equal(liveCells(s.board).length, 170);
 });
 
-test("12. 섞기·재생성 시 보너스 수·상태 보존, 제거된 보너스는 부활 안 함", () => {
-  // 섞기: 살아 있는 보너스 2개 유지
+test("12. 재생성 시 보너스 수·상태 보존, 제거된 보너스는 부활 안 함", () => {
+  // 17×10: 살아 있는 보너스 2개 유지
   const b = emptyBoard();
   b[0][0] = a(9, true); b[9][16] = a(9, true); b[5][8] = a(9);
   const ids = new Set([b[0][0].id, b[9][16].id]);
@@ -172,7 +171,7 @@ test("12. 섞기·재생성 시 보너스 수·상태 보존, 제거된 보너�
   assert.equal(bonuses.length, 2);
   bonuses.forEach((x) => { assert.ok(ids.has(x.cell.id)); assert.equal(x.cell.value, 9); });
 
-  // 재생성: 살아남은 보너스만 이식
+  // 소형 판: 살아남은 보너스만 이식
   const tiny = [[a(9, true), null, a(9)], [null, a(9), null]];
   const small = { ...RULES, rows: 2, cols: 3 };
   const g = tryRecoverBoard(tiny, createSeededRng(5), createIdGen(8000), small);
@@ -184,6 +183,23 @@ test("12. 섞기·재생성 시 보너스 수·상태 보존, 제거된 보너�
   // 직접 생성: 이식 대상이 없으면 보너스 0개
   const fresh = generateValidBoard(createSeededRng(6), createIdGen(), []);
   assert.equal(countLiveBonus(fresh), 0);
+});
+
+test("실패 감점: 사과 2개 이상 무효면 -3, 1개 이하는 감점 없음, 0점 아래로 안 감", () => {
+  const s = createSession({ seed: 7 });
+  s.start(0);
+  const b = emptyBoard(); b[0][0] = a(3); b[0][1] = a(4); b[5][5] = a(5); b[5][6] = a(5);
+  s.board = b;
+  s.score = 10;
+  let res = s.submit(sel(0, 0, 0, 1), 1000);                     // 3+4=7
+  assert.deepEqual([res.accepted, res.penalty, s.score], [false, RULES.missPenalty, 10 - RULES.missPenalty]);
+  res = s.submit(sel(0, 0, 0, 0), 2000);                         // 사과 1개 → 감점 없음
+  assert.deepEqual([res.penalty, s.score], [0, 10 - RULES.missPenalty]);
+  res = s.submit(sel(9, 0, 9, 3), 3000);                         // 빈칸만 → 감점 없음
+  assert.equal(res.penalty, 0);
+  s.score = 1;
+  res = s.submit(sel(0, 0, 0, 1), 4000);
+  assert.deepEqual([res.penalty, s.score], [1, 0]);
 });
 
 test("시간: 119.9~120.1초 경계, 만료 후 제출 차단, 같은 시드는 같은 보드", () => {

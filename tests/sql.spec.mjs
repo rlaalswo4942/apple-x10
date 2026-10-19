@@ -105,6 +105,14 @@ test("submit-move: 서버 계산 점수, 중복 seq 1회만, 순서·범위 검�
   await assert.rejects(rpc(U1, "apple_submit_move", [st.run_id, 2, 0, 0, 0, 17]), /invalid selection/);
   const bad = await rpc(U1, "apple_submit_move", [st.run_id, 2, 0, 0, 0, 0]);   // 사과 1개 → 무효, 0점
   assert.deepEqual([bad.move.accepted, bad.score, bad.next_seq], [false, want, 3]);
+  const b = toBoard(bad.board);                                           // 사과 2개 이상 무효 → 감점 (0 아래로 안 감)
+  let miss;
+  for (let c = 0; c < 16 && miss === undefined; c++) {
+    const ev = evaluateSelection(b, { r0: 0, r1: 0, c0: c, c1: c + 1 });
+    if (ev.N === 2 && !ev.valid) miss = c;
+  }
+  const pen = await rpc(U1, "apple_submit_move", [st.run_id, 3, 0, miss, 0, miss + 1]);
+  assert.deepEqual([pen.move.accepted, pen.move.penalty, pen.score], [false, Math.min(3, want), want - Math.min(3, want)]);
 });
 
 test("다른 사용자의 run 접근·비인증 호출 차단 (18)", async () => {
@@ -153,7 +161,7 @@ test("보너스 이벤트: 경과 시간만큼 서버가 1회씩 처리, 최대 
   assert.deepEqual(ev, [20, 40, 60, 80, 100]);
 });
 
-test("서버 자동 복구: 판이 비면 재생성, 해가 없으면 4·6 보충, 점수 유지", async () => {
+test("서버 자동 복구: 판이 비거나 해가 없으면 판 전체 재생성, 점수 유지", async () => {
   await allowNewRun(U1);
   let st = await rpc(U1, "apple_start_run", ["사과왕"]);
   const empty = new Array(170).fill(null);
@@ -167,16 +175,16 @@ test("서버 자동 복구: 판이 비면 재생성, 해가 없으면 4·6 보�
   const b2 = empty.slice(); b2[0] = { id: 1, v: 4, b: false }; b2[1] = { id: 2, v: 6, b: false }; b2[169] = { id: 3, v: 9, b: true };
   await admin("update apple_private.runs set board = $2::jsonb where id = $1", [st.run_id, JSON.stringify(b2)]);
   st = await rpc(U1, "apple_submit_move", [st.run_id, 2, 0, 0, 0, 1]);
-  assert.equal(st.move.recovery, "filled-4-6");
+  assert.equal(st.move.recovery, "regenerated");
   const live = st.board.filter(Boolean);
-  assert.equal(live.length, 3);
+  assert.equal(live.length, 170, "빈칸 보충이 아니라 판 전체");
   assert.equal(live.filter((x) => x.b && x.id === 3).length, 1, "살아남은 보너스 유지");
   assert.ok(findAnyValidRectangle(toBoard(st.board)));
 });
 
 test("랭킹 (20): 한국 날짜 일간, 이용자별 최고 1개, 동점은 먼저 확정, 규칙 버전 분리, 닉네임 검증", async () => {
   await admin("delete from apple_private.runs");
-  const mk = async (uid, nick, score, at, version = 1) => {
+  const mk = async (uid, nick, score, at, version = 2) => {
     const st = await rpc(uid, "apple_start_run", [nick]);
     await admin(`update apple_private.runs set status = 'finished', score = $2, finished_at = ${at},
       started_at = started_at - interval '1 day', expires_at = expires_at - interval '1 day', rules_version = $3 where id = $1`,
@@ -186,7 +194,7 @@ test("랭킹 (20): 한국 날짜 일간, 이용자별 최고 1개, 동점은 먼
   await mk(U1, "가나다", 80, `${today} + interval '1 minute'`);
   await mk(U1, "가나다", 120, `${today} - interval '1 minute'`);         // 어제 23:59 (한국 시간)
   await mk(U2, "Bob_2", 80, `${today} + interval '30 seconds'`);         // U1과 동점이지만 먼저 확정
-  await mk(U3, "v2player", 999, `${today} + interval '2 minutes'`, 2);   // 다른 규칙 버전
+  await mk(U3, "v1player", 999, `${today} + interval '2 minutes'`, 1);   // 다른 규칙 버전
 
   const daily = await call(U1, "select * from public.apple_leaderboard('daily')");
   assert.deepEqual(daily.map((r) => [r.nickname, r.score]), [["Bob_2", 80], ["가나다", 80]]);

@@ -92,7 +92,7 @@ export function createRankedEngine(rules = RULES) {
       if (!apply(st)) return { accepted: false, reason: "stale" };
       const m = st.move;
       return {
-        accepted: m.accepted, reason: m.reason,
+        accepted: m.accepted, reason: m.reason, penalty: m.penalty ?? 0,
         eval: { N: m.n, S: m.s, B: m.b, earned: m.earned, valid: m.accepted },
         recovery: { action: m.recovery },
       };

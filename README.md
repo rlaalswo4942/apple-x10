@@ -5,7 +5,7 @@ Fruit Box의 조작 방식만 참고했고, 코드·그래픽·이름은 직접 
 
 - 플레이: https://rlaalswo4942.github.io/apple-x10/
 - 백업 시점: 2026-10-15, 워크북 주차별 분해 전 완성본 (원래 위치 `my-game/apple/`)
-- 기반 문서: `claude_apple_game_master_prompt_v3.md` (규칙 v1)
+- 기반 문서: `claude_apple_game_master_prompt_v3.md` (규칙 v2: 2026-10-19 실패 감점 추가, 막히면 판 전체 재생성)
 
 ## 파일
 
@@ -62,8 +62,8 @@ npm run online         # 랭킹 모드 통합 테스트 (브라우저 → 가짜
 | 6 | 보너스 +10/+20 | Pass | `npm test` |
 | 7 | 시작 보너스 1회, 이벤트 각 1회, 최대 3개 | Pass | `npm test`, `npm run e2e`, `npm run sql` |
 | 8 | 8,415개 검사 + 실제 사과 수 조건 | Pass | `npm test` (방문 수 8415 확인) |
-| 9 | 해결 가능 판 미복구, 불가능 판 제한 내 복구 | Pass | `npm test`, `npm run sql` |
-| 10 | 인접 빈칸 없으면 4+6 없이 재생성 | Pass | `npm test` (2×3 소형 판) |
+| 9 | 해결 가능 판 미복구, 불가능 판은 판 전체 재생성 (4·6 보충 없음) | Pass | `npm test`, `npm run sql` |
+| 10 | 실패 감점: 사과 2개 이상 무효면 -3점, 0점 하한 | Pass | `npm test`, `npm run e2e`, `npm run sql` |
 | 11 | 판이 비면 재생성, 점수·시간·이력 유지 | Pass | `npm test`, `npm run sql` |
 | 12 | 보너스 보존, 제거된 보너스 부활 없음 | Pass | `npm test`, `npm run sql` |
 | 13 | pointercancel·멀티터치·우클릭·중복 pointerup·재시작 중 이벤트 | Pass | `npm run e2e` (멀티터치는 `isPrimary` 코드로만, 실기기 Not Run) |

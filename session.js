@@ -52,7 +52,12 @@ export function createSession({ seed = (Math.random() * 2 ** 32) >>> 0, rules = 
 
     s.status = "RESOLVING_MOVE";
     const ev = evaluateSelection(s.board, sel, rules);
-    if (!ev.valid) { s.status = "PLAYING"; return { accepted: false, reason: "invalid", eval: ev }; }
+    if (!ev.valid) {
+      const penalty = ev.N >= 2 ? Math.min(rules.missPenalty, s.score) : 0;
+      s.score -= penalty;
+      s.status = "PLAYING";
+      return { accepted: false, reason: "invalid", eval: ev, penalty };
+    }
     s.board = applyRemoval(s.board, sel);
     s.score += ev.earned;
 

@@ -50,7 +50,8 @@ const findRect = (page, wantValid) => page.evaluate(async (wantValid) => {
   }
   for (let r = 0; r < 10; r++) for (let c = 0; c < 16; c++) {
     const rect = { r0: r, r1: r, c0: c, c1: c + 1 };
-    if (!R.evaluateSelection(b, rect).valid) return { rect, earned: 0 };
+    const ev = R.evaluateSelection(b, rect);
+    if (ev.N === 2 && !ev.valid) return { rect, earned: 0 };
   }
 }, wantValid);
 
@@ -92,12 +93,13 @@ test("13. 네 방향 드래그, 무효·우클릭·pointercancel·중복 pointer
   await mouseDrag(page, [rect.r0, rect.c1], [rect.r1, rect.c0]);
   assert.equal(await score(page), s1 + earned);
 
-  // 무효 선택
-  const s2 = await score(page);
+  // 무효 선택 (사과 2개) → 감점
+  const s0 = await score(page);
   const live = await liveCount(page);
   const bad = await findRect(page, false);
   await mouseDrag(page, [bad.rect.r0, bad.rect.c0], [bad.rect.r1, bad.rect.c1]);
-  assert.equal(await score(page), s2);
+  const s2 = await score(page);
+  assert.equal(s2, s0 - Math.min(3, s0), "무효면 -3점");
   assert.equal(await liveCount(page), live, "무효면 보드 불변");
 
   // 우클릭 드래그

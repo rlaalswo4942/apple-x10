@@ -2,7 +2,7 @@
 // 보드: board[row][col] = null | { id, value, isBonus }
 
 export const RULES = {
-  version: 1,
+  version: 2,
   rows: 10,
   cols: 17,
   durationMs: 120_000,
@@ -13,8 +13,8 @@ export const RULES = {
   countBonusCap: 8,
   sumBonusPerTen: 2,
   sumBonusCap: 6,
-  maxShuffles: 10,                  // 복구 3단계
-  maxRegenerations: 20,             // 복구 5단계 (사실상 1회면 성공)
+  missPenalty: 3,                   // 사과 2개 이상 묶었는데 무효면 감점 (0점 아래로는 안 내려감)
+  maxRegenerations: 20,             // 새 판 생성 재시도 (사실상 1회면 성공)
 };
 
 // ---------- 난수 (고정 시드 재현용) ----------
@@ -133,33 +133,23 @@ export function liveCells(board) {
 
 export const countLiveBonus = (board) => liveCells(board).filter((x) => x.cell.isBonus).length;
 
-// 새 보드: 인접한 일반 사과 두 칸을 4, 6으로 보장하고, 살아남은 보너스 객체를 다른 칸에 이식.
+// 새 보드: 무작위 판 전체 + 살아남은 보너스 객체를 무작위 칸에 이식. 유효 조합이 생길 때까지 재시도, 실패하면 null.
 export function generateValidBoard(rng, nextId, carryBonuses = [], rules = RULES) {
-  const board = generateRandomBoard(rng, nextId, rules);
-  const horizontal = rng() < 0.5;
-  const r = randInt(rng, 0, rules.rows - (horizontal ? 1 : 2));
-  const c = randInt(rng, 0, rules.cols - (horizontal ? 2 : 1));
-  const r2 = horizontal ? r : r + 1, c2 = horizontal ? c + 1 : c;
-  board[r][c] = apple(nextId(), 4);
-  board[r2][c2] = apple(nextId(), 6);
-
-  const reserved = new Set([`${r},${c}`, `${r2},${c2}`]);
-  const free = [];
-  for (let i = 0; i < rules.rows; i++)
-    for (let j = 0; j < rules.cols; j++)
-      if (!reserved.has(`${i},${j}`)) free.push([i, j]);
-  shuffleInPlace(free, rng);
-  carryBonuses.slice(0, rules.maxLiveBonus).forEach((b, k) => {
-    const [i, j] = free[k];
-    board[i][j] = { ...b };
-  });
-  return board;
+  for (let i = 0; i < rules.maxRegenerations; i++) {
+    const board = generateRandomBoard(rng, nextId, rules);
+    const cells = shuffleInPlace(liveCells(board), rng);
+    carryBonuses.slice(0, rules.maxLiveBonus).forEach((b, k) => {
+      const { r, c } = cells[k];
+      board[r][c] = { ...b };
+    });
+    if (findAnyValidRectangle(board)) return board;
+  }
+  return null;
 }
 
-// 게임 시작 보드: 무작위 170칸 + 보너스 2개. 유효 조합이 없으면 4·6 보장 보드로.
+// 게임 시작 보드: 유효 조합이 있는 무작위 170칸 + 보너스 2개.
 export function createStartBoard(rng, nextId, rules = RULES) {
-  let board = generateRandomBoard(rng, nextId, rules);
-  if (!findAnyValidRectangle(board)) board = generateValidBoard(rng, nextId, [], rules);
+  const board = generateValidBoard(rng, nextId, [], rules);
   const cells = liveCells(board);
   shuffleInPlace(cells, rng);
   cells.slice(0, rules.startBonusCount).forEach(({ r, c, cell }) => {
@@ -177,50 +167,15 @@ function shuffleInPlace(arr, rng) {
 }
 
 // ---------- 진행 불가 복구 ----------
-// 반환: { board, action, shuffles, regenerations } 또는 { error }
-// action: none | regenerated-empty | shuffled | filled-4-6 | regenerated
+// 더 없앨 묶음이 없으면 판 전체를 새로 깐다 (살아남은 보너스만 이식).
+// 반환: { board, action } 또는 { error }. action: none | regenerated-empty | regenerated
 export function tryRecoverBoard(board, rng, nextId, rules = RULES) {
-  if (findAnyValidRectangle(board)) return { board, action: "none", shuffles: 0, regenerations: 0 };
-
+  if (findAnyValidRectangle(board)) return { board, action: "none" };
   const live = liveCells(board);
-  if (live.length === 0) {
-    return { board: generateValidBoard(rng, nextId, [], rules), action: "regenerated-empty", shuffles: 0, regenerations: 1 };
-  }
-
-  // 3단계: 살아 있는 사과 객체만 기존 점유 칸 안에서 섞기 (빈칸 유지)
-  let current = board;
-  for (let i = 1; i <= rules.maxShuffles; i++) {
-    const objs = shuffleInPlace(live.map((x) => x.cell), rng);
-    current = board.map((row) => row.slice());
-    live.forEach(({ r, c }, k) => { current[r][c] = objs[k]; });
-    if (findAnyValidRectangle(current)) return { board: current, action: "shuffled", shuffles: i, regenerations: 0 };
-  }
-
-  // 4단계: 가로·세로로 인접한 빈칸 2개가 있으면 4, 6 보충
-  const pairs = [];
-  for (let r = 0; r < rules.rows; r++)
-    for (let c = 0; c < rules.cols; c++) {
-      if (current[r][c] !== null) continue;
-      if (c + 1 < rules.cols && current[r][c + 1] === null) pairs.push([r, c, r, c + 1]);
-      if (r + 1 < rules.rows && current[r + 1][c] === null) pairs.push([r, c, r + 1, c]);
-    }
-  if (pairs.length > 0) {
-    const [r, c, r2, c2] = pairs[Math.floor(rng() * pairs.length)];
-    const filled = current.map((row) => row.slice());
-    filled[r][c] = apple(nextId(), 4);
-    filled[r2][c2] = apple(nextId(), 6);
-    if (findAnyValidRectangle(filled))
-      return { board: filled, action: "filled-4-6", shuffles: rules.maxShuffles, regenerations: 0 };
-  }
-
-  // 5단계: 전체 재생성 (살아남은 보너스만 이식, 반복 횟수 제한)
   const bonuses = live.filter((x) => x.cell.isBonus).map((x) => x.cell);
-  for (let i = 1; i <= rules.maxRegenerations; i++) {
-    const fresh = generateValidBoard(rng, nextId, bonuses, rules);
-    if (findAnyValidRectangle(fresh))
-      return { board: fresh, action: "regenerated", shuffles: rules.maxShuffles, regenerations: i };
-  }
-  return { error: "recovery-failed" };
+  const fresh = generateValidBoard(rng, nextId, bonuses, rules);
+  if (!fresh) return { error: "recovery-failed" };
+  return { board: fresh, action: live.length === 0 ? "regenerated-empty" : "regenerated" };
 }
 
 // ---------- 보너스 이벤트 ----------
