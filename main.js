@@ -1,5 +1,5 @@
 // 화면·입력 담당. 규칙은 rules.js, 로컬 세션은 session.js, 온라인은 online.js.
-import { RULES, normalizeSelection, evaluateSelection, formatRemainingTime } from "./rules.js";
+import { RULES, normalizeSelection, formatRemainingTime } from "./rules.js";
 import { createSession } from "./session.js";
 import { onlineConfigured, createRankedEngine, fetchLeaderboard } from "./online.js";
 
@@ -103,16 +103,9 @@ function showSelection(sel) {
   selBox.hidden = false;
 }
 
+// 선택 사각형만 그린다. 합계·제거 가능 여부는 놓기 전까지 알려 주지 않는다.
 function updatePreview() {
-  const p = $("preview");
-  if (!drag) { showSelection(null); return; }
-  const sel = normalizeSelection(drag.start, drag.end);
-  const ev = evaluateSelection(engine.board, sel);
-  showSelection(sel);
-  selBox.classList.toggle("valid", ev.valid);
-  // 미리보기는 점수를 확정하지 않는다
-  p.innerHTML = "";
-  p.append(`합계 ${ev.S} · 사과 ${ev.N}개${ev.B ? ` (★${ev.B})` : ""}`);
+  showSelection(drag ? normalizeSelection(drag.start, drag.end) : null);
 }
 
 function endDrag() {
@@ -148,7 +141,7 @@ boardEl.addEventListener("pointerup", (e) => {
 
 for (const type of ["pointercancel", "lostpointercapture"]) {
   boardEl.addEventListener(type, (e) => {
-    if (drag && e.pointerId === drag.pointerId) { endDrag(); $("preview").textContent = "드래그가 취소됐어요"; }
+    if (drag && e.pointerId === drag.pointerId) { endDrag(); setStatus("드래그가 취소됐어요"); }
   });
 }
 boardEl.addEventListener("contextmenu", (e) => e.preventDefault());
@@ -180,7 +173,6 @@ async function commit(sel) {
     setStatus("서버 확인 중이에요. 잠시 후 다시 드래그하세요");
   }
   if (engine.error === "recovery-failed") setStatus("판 복구에 실패했어요. 다시 시작을 눌러 주세요");
-  $("preview").textContent = "드래그해서 사과를 묶어 보세요";
   renderBoard();
   renderStats();
 }

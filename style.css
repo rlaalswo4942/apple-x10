@@ -76,11 +76,6 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .mode { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; color: var(--muted); }
 
-.preview {
-  min-height: 1.6em;
-  font-size: 0.95rem;
-  font-variant-numeric: tabular-nums;
-}
 
 /* ===== 게임판 ===== */
 .board-wrap { position: relative; width: calc(var(--cell) * 17); margin: 4px auto 0; }
@@ -155,7 +150,6 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px s
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.22);
 }
-.sel-box.valid { border-color: var(--gold); background: rgba(242, 183, 5, 0.3); }
 
 .overlay {
   position: absolute;
